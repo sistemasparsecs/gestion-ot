@@ -538,17 +538,22 @@ let ST = {
 async function getToken() {
   const accounts = msalApp.getAllAccounts();
   if(!accounts.length) throw new Error('No hay sesión activa');
-  const resp = await msalApp.acquireTokenSilent({
-    scopes: [CFG.spScope],
-    account: accounts[0]
-  });
-  return resp.accessToken;
+  try {
+    const resp = await msalApp.acquireTokenSilent({
+      scopes: [CFG.spScope],
+      account: accounts[0]
+    });
+    return resp.accessToken;
+  } catch(e) {
+    // Token expirado — redirigir a login
+    await msalApp.acquireTokenRedirect({ scopes: [CFG.spScope], account: accounts[0] });
+    throw new Error('Redirigiendo para renovar sesión...');
+  }
 }
 
 async function doLogout() {
   if(!confirm('¿Cerrar sesión?')) return;
-  await msalApp.logoutPopup();
-  location.reload();
+  await msalApp.logoutRedirect({ postLogoutRedirectUri: 'https://sistemasparsecs.github.io/gestion-ot/' });
 }
 
 async function startApp() {
@@ -856,10 +861,9 @@ async function doLogin() {
     document.getElementById('login-msg').textContent = 'Inicializando... esperá un segundo e intentá de nuevo.';
     return;
   }
-  document.getElementById('login-msg').textContent = 'Iniciando sesión...';
+  document.getElementById('login-msg').textContent = 'Redirigiendo a Microsoft...';
   try {
-    await msalApp.loginPopup({ scopes: ['User.Read', CFG.spScope] });
-    await startApp();
+    await msalApp.loginRedirect({ scopes: ['User.Read', CFG.spScope] });
   } catch(e) {
     document.getElementById('login-msg').textContent = 'Error: ' + e.message;
   }
