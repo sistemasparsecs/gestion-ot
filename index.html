@@ -526,8 +526,7 @@ let ST = {
 // ═══════════════════════════════════════════════════════
 //  AUTH
 // ═══════════════════════════════════════════════════════
-async function doLogin() {
-  document.getElementById('login-msg').textContent = 'Iniciando sesión...';
+
   try {
     await msalApp.loginPopup({ scopes: ['User.Read', CFG.spScope] });
     await startApp();
@@ -848,18 +847,36 @@ function closeM(id){document.getElementById(id).classList.remove('open')}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===o)o.classList.remove('open')}));
 
 // ═══════════════════════════════════════════════════════
-//  ARRANQUE — verificar si ya hay sesión activa
+//  ARRANQUE — inicialización MSAL
 // ═══════════════════════════════════════════════════════
-(async()=>{
-  await msalApp.initialize();
-  // Manejar redirect si viene de login
-  try{ await msalApp.handleRedirectPromise(); }catch(e){}
-  const accounts=msalApp.getAllAccounts();
-  if(accounts.length>0){
-    // Ya hay sesión — ir directo a la app
-    await startApp();
+let _msalReady = false;
+
+async function doLogin() {
+  if(!_msalReady) {
+    document.getElementById('login-msg').textContent = 'Inicializando... esperá un segundo e intentá de nuevo.';
+    return;
   }
-  // Si no hay sesión queda visible el login-screen
+  document.getElementById('login-msg').textContent = 'Iniciando sesión...';
+  try {
+    await msalApp.loginPopup({ scopes: ['User.Read', CFG.spScope] });
+    await startApp();
+  } catch(e) {
+    document.getElementById('login-msg').textContent = 'Error: ' + e.message;
+  }
+}
+
+(async function initMsal() {
+  try {
+    await msalApp.initialize();
+    _msalReady = true;
+    try { await msalApp.handleRedirectPromise(); } catch(e) {}
+    const accounts = msalApp.getAllAccounts();
+    if(accounts.length > 0) {
+      await startApp();
+    }
+  } catch(e) {
+    document.getElementById('login-msg').textContent = 'Error de inicialización: ' + e.message;
+  }
 })();
 </script>
 </body>
