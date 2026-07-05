@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GestiónOT — PARSECS</title>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.33.0/dist/tabler-icons.min.css">
+<style>
+:root {
+  --c-bg:#F5F4F1;--c-surface:#FFFFFF;--c-border:#E2E0DA;--c-border2:#CCCAC3;
+  --c-text:#1A1917;--c-text2:#5A5854;--c-text3:#9A9894;
+  --c-accent:#1B4F8A;--c-accent2:#143D6B;--c-accent-l:#E8EFF8;
+  --c-open:#166534;--c-open-bg:#DCFCE7;--c-closed:#5A5854;--c-closed-bg:#F1F0ED;
+  --c-hist:#854D0E;--c-hist-bg:#FEF9C3;--c-danger:#991B1B;--c-danger-bg:#FEE2E2;
+  --c-warn-bg:#FEF3C7;--c-warn:#92400E;--c-success-bg:#DCFCE7;--c-success:#166534;
+  --r:8px;--r-sm:5px;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.05);
+  --shadow-md:0 4px 12px rgba(0,0,0,.1);
+  --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);font-size:14px;color:var(--c-text);background:var(--c-bg);height:100vh;overflow:hidden}
+
+/* LOGIN */
+#login-screen{position:fixed;inset:0;background:var(--c-accent);display:flex;align-items:center;justify-content:center;z-index:500}
+.login-box{background:#fff;border-radius:16px;padding:40px;width:380px;text-align:center;box-shadow:var(--shadow-md)}
+.login-logo{font-size:32px;margin-bottom:8px}
+.login-box h1{font-size:22px;font-weight:700;color:var(--c-accent);margin-bottom:4px}
+.login-box p{font-size:13px;color:var(--c-text2);margin-bottom:28px}
+.btn-ms{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;border-radius:8px;border:1.5px solid var(--c-border2);background:#fff;font-size:14px;font-weight:500;cursor:pointer;color:var(--c-text);font-family:var(--font);transition:all .15s}
+.btn-ms:hover{background:var(--c-bg);border-color:var(--c-accent)}
+.btn-ms img{width:20px;height:20px}
+#login-msg{font-size:12px;color:var(--c-text3);margin-top:14px;min-height:20px}
+
+/* APP */
+#app{display:flex;height:100vh;display:none}
+#sidebar{width:220px;background:var(--c-accent);display:flex;flex-direction:column;flex-shrink:0}
+.sb-brand{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.12)}
+.sb-brand h1{font-size:15px;font-weight:600;color:#fff;letter-spacing:.02em}
+.sb-brand p{font-size:11px;color:rgba(255,255,255,.55);margin-top:2px}
+.sb-nav{flex:1;overflow-y:auto;padding:10px 8px}
+.nav-sec{font-size:10px;font-weight:600;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.08em;padding:12px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-sm);cursor:pointer;font-size:13px;color:rgba(255,255,255,.7);transition:background .15s,color .15s}
+.nav-item:hover{background:rgba(255,255,255,.1);color:#fff}
+.nav-item.active{background:rgba(255,255,255,.18);color:#fff;font-weight:500}
+.nav-item i{font-size:17px;width:20px;flex-shrink:0}
+.nav-badge{background:rgba(255,255,255,.25);color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:20px;margin-left:auto}
+.sb-foot{padding:12px 14px;border-top:1px solid rgba(255,255,255,.12)}
+.sb-user{display:flex;align-items:center;gap:9px}
+.sb-avatar{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;flex-shrink:0;cursor:pointer}
+.sb-info p{font-size:12px;font-weight:500;color:#fff}
+.sb-info span{font-size:11px;color:rgba(255,255,255,.5)}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+#topbar{padding:12px 22px;background:var(--c-surface);border-bottom:1px solid var(--c-border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:var(--shadow)}
+#topbar h2{font-size:16px;font-weight:600}
+.tb-right{display:flex;align-items:center;gap:10px}
+#sp-status{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500}
+.sp-ok{background:var(--c-success-bg);color:var(--c-success)}
+.sp-err{background:var(--c-danger-bg);color:var(--c-danger)}
+.sp-loading{background:var(--c-warn-bg);color:var(--c-warn)}
+#content{flex:1;overflow-y:auto;padding:20px 22px}
+.page{display:none}.page.active{display:block}
+
+.card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--r);padding:16px 20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:12px;font-weight:600;color:var(--c-text2);text-transform:uppercase;letter-spacing:.04em}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.met{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--r);padding:14px 18px;box-shadow:var(--shadow)}
+.met-label{font-size:11px;color:var(--c-text3);font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.met-val{font-size:26px;font-weight:700;color:var(--c-accent)}
+.met-val.g{color:var(--c-open)}.met-val.a{color:var(--c-hist)}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--c-border);white-space:nowrap;background:var(--c-bg)}
+td{padding:9px 12px;border-bottom:1px solid var(--c-border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#F9F8F5}
+
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.b-open{background:var(--c-open-bg);color:var(--c-open)}
+.b-closed{background:var(--c-closed-bg);color:var(--c-closed)}
+.b-hist{background:var(--c-hist-bg);color:var(--c-hist)}
+.b-accent{background:var(--c-accent-l);color:var(--c-accent)}
+.b-danger{background:var(--c-danger-bg);color:var(--c-danger)}
+
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--r-sm);border:1px solid var(--c-border2);background:var(--c-surface);font-size:12px;cursor:pointer;color:var(--c-text);font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--c-bg);border-color:var(--c-accent)}
+.btn-p{background:var(--c-accent);color:#fff;border-color:var(--c-accent)}.btn-p:hover{background:var(--c-accent2)}
+.btn-d{background:var(--c-danger-bg);color:var(--c-danger);border-color:transparent}.btn-d:hover{background:#FECACA}
+.btn-g{background:var(--c-success-bg);color:var(--c-open);border-color:transparent}.btn-g:hover{background:#BBF7D0}
+.btn-w{background:var(--c-warn-bg);color:var(--c-warn);border-color:transparent}
+.btn-sm{padding:4px 10px;font-size:11px}.btn-lg{padding:10px 20px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+input,select,textarea{width:100%;padding:8px 11px;border:1px solid var(--c-border2);border-radius:var(--r-sm);font-size:13px;font-family:var(--font);background:var(--c-surface);color:var(--c-text);outline:none;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--c-accent);box-shadow:0 0 0 3px rgba(27,79,138,.1)}
+input[readonly],input:disabled{background:var(--c-bg);color:var(--c-text2)}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:11px;font-weight:600;color:var(--c-text2);text-transform:uppercase;letter-spacing:.04em}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.mb{margin-bottom:12px}
+.sep{height:1px;background:var(--c-border);margin:14px 0}
+
+.tabs{display:flex;border-bottom:1px solid var(--c-border);margin-bottom:14px}
+.tab{padding:8px 18px;font-size:13px;cursor:pointer;color:var(--c-text2);border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:500;transition:all .15s}
+.tab:hover{color:var(--c-accent)}.tab.active{color:var(--c-accent);border-bottom-color:var(--c-accent)}
+.search-bar{display:flex;gap:8px;margin-bottom:14px}
+.search-bar input{max-width:280px}.search-bar select{width:auto}
+
+.alert{padding:10px 14px;border-radius:var(--r-sm);font-size:13px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px}
+.al-i{background:var(--c-accent-l);color:var(--c-accent)}
+.al-s{background:var(--c-success-bg);color:var(--c-success)}
+.al-w{background:var(--c-warn-bg);color:var(--c-warn)}
+.al-d{background:var(--c-danger-bg);color:var(--c-danger)}
+
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.overlay.open{display:flex}
+.modal{background:var(--c-surface);border-radius:var(--r);border:1px solid var(--c-border);padding:24px;width:620px;max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:var(--shadow-md)}
+.modal-sm{width:440px}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:16px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--c-border)}
+
+.pr-row{display:grid;grid-template-columns:2fr 110px 1fr 1fr auto;gap:8px;align-items:center;margin-bottom:6px;padding:8px 10px;background:var(--c-bg);border-radius:var(--r-sm);border:1px solid var(--c-border)}
+.pr-hdr{display:grid;grid-template-columns:2fr 110px 1fr 1fr auto;gap:8px;padding:0 10px;margin-bottom:4px}
+.pr-hdr span{font-size:10px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.04em}
+
+.cierre-box{background:linear-gradient(135deg,var(--c-success-bg),#BBF7D0);border-radius:var(--r);padding:22px;text-align:center;margin:14px 0;border:1px solid #86EFAC}
+.cierre-box h4{font-size:16px;font-weight:600;color:var(--c-open);margin-bottom:6px}
+.cierre-box .ts{font-size:22px;font-weight:700;color:var(--c-open);margin-top:8px;font-variant-numeric:tabular-nums}
+
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(27,79,138,.2);border-top-color:var(--c-accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{position:fixed;inset:0;background:rgba(245,244,241,.85);z-index:300;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+.loading-overlay p{font-size:14px;color:var(--c-text2);font-weight:500}
+
+.empty{text-align:center;padding:36px 20px;color:var(--c-text3);font-size:13px}
+.empty i{font-size:36px;display:block;margin-bottom:8px;opacity:.35}
+
+#toast{position:fixed;bottom:24px;right:24px;z-index:400;display:flex;flex-direction:column;gap:8px}
+.toast-item{padding:12px 18px;border-radius:var(--r);font-size:13px;font-weight:500;box-shadow:var(--shadow-md);animation:slideIn .25s ease;max-width:340px;display:flex;align-items:center;gap:8px}
+.toast-ok{background:var(--c-success-bg);color:var(--c-open);border:1px solid #86EFAC}
+.toast-err{background:var(--c-danger-bg);color:var(--c-danger);border:1px solid #FCA5A5}
+.toast-inf{background:var(--c-accent-l);color:var(--c-accent);border:1px solid #BFDBFE}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">⚙</div>
+    <h1>GestiónOT</h1>
+    <p>ADHESIVOS PARSECS S.A.<br>Ingresá con tu cuenta Microsoft 365</p>
+    <button class="btn-ms" onclick="doLogin()">
+      <img src="https://learn.microsoft.com/en-us/azure/active-directory/develop/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png" alt="Microsoft">
+      Iniciar sesión con Microsoft
+    </button>
+    <div id="login-msg"></div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading-overlay" class="loading-overlay" style="display:none">
+  <div class="spinner" style="width:32px;height:32px;border-width:3px"></div>
+  <p id="loading-msg">Cargando datos...</p>
+</div>
+
+<!-- APP -->
+<div id="app">
+<div id="sidebar">
+  <div class="sb-brand">
+    <h1>⚙ GestiónOT</h1>
+    <p>ADHESIVOS PARSECS S.A.</p>
+  </div>
+  <div class="sb-nav">
+    <div class="nav-sec">Principal</div>
+    <div class="nav-item active" id="ni-dash" onclick="nav('dash')"><i class="ti ti-layout-dashboard"></i>Dashboard</div>
+    <div class="nav-sec">Operaciones</div>
+    <div class="nav-item" id="ni-ot" onclick="nav('ot')"><i class="ti ti-clipboard-list"></i>Gestión de OT<span class="nav-badge" id="cnt-ot">0</span></div>
+    <div class="nav-item" id="ni-pesaje" onclick="nav('pesaje')"><i class="ti ti-scale"></i>Pesaje</div>
+    <div class="nav-sec">Maestros</div>
+    <div class="nav-item" id="ni-art" onclick="nav('art')"><i class="ti ti-package"></i>Artículos</div>
+    <div class="nav-item" id="ni-usr" onclick="nav('usr')"><i class="ti ti-users"></i>Usuarios</div>
+    <div class="nav-sec">Sistema</div>
+    <div class="nav-item" id="ni-aud" onclick="nav('aud')"><i class="ti ti-activity"></i>Auditoría</div>
+    <div class="nav-item" id="ni-impexp" onclick="nav('impexp')"><i class="ti ti-arrows-exchange"></i>Importar / Exportar</div>
+  </div>
+  <div class="sb-foot">
+    <div class="sb-user">
+      <div class="sb-avatar" id="sb-av" title="Cerrar sesión" onclick="doLogout()">?</div>
+      <div class="sb-info"><p id="sb-nombre">...</p><span id="sb-email"></span></div>
+    </div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="topbar">
+    <h2 id="pg-title">Dashboard</h2>
+    <div class="tb-right">
+      <span id="sp-status" class="sp-loading">● Conectando...</span>
+      <div id="tb-btns" style="display:flex;gap:8px"></div>
+    </div>
+  </div>
+  <div id="content">
+
+    <!-- DASHBOARD -->
+    <div id="page-dash" class="page active">
+      <div class="metrics" id="dash-mets"></div>
+      <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:16px">
+        <div class="card"><div class="card-hd"><span class="card-title">Órdenes recientes</span></div><div id="dash-ot"></div></div>
+        <div class="card"><div class="card-hd"><span class="card-title">Últimos pesajes</span></div><div id="dash-pesos"></div></div>
+      </div>
+      <div class="card"><div class="card-hd"><span class="card-title">Actividad reciente</span></div><div id="dash-aud"></div></div>
+    </div>
+
+    <!-- GESTIÓN OT -->
+    <div id="page-ot" class="page">
+      <div class="tabs">
+        <div class="tab active" id="tab-ab" onclick="setOtTab('ABIERTO')">Abiertas</div>
+        <div class="tab" id="tab-ce" onclick="setOtTab('CERRADO')">Cerradas</div>
+        <div class="tab" id="tab-hi" onclick="setOtTab('HISTORICO')">Histórico / Depuración</div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="ot-q" placeholder="Buscar OT, destino, responsable..." oninput="renderOT()">
+      </div>
+      <div class="card" style="padding:0;overflow:auto">
+        <table>
+          <thead><tr><th>N° OT</th><th>Descripción</th><th>Destino</th><th>Responsable</th><th>F. Apertura</th><th>F. Cierre</th><th>Prioridad</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody id="ot-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PESAJE -->
+    <div id="page-pesaje" class="page">
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Encabezado del pesaje</span></div>
+        <div class="g3 mb">
+          <div class="fg"><label>Fecha</label><input type="date" id="p-fecha"></div>
+          <div class="fg"><label>Hora</label><input type="time" id="p-hora"></div>
+          <div class="fg"><label>OT (solo abiertas)</label>
+            <select id="p-ot" onchange="onOtSelect()"><option value="">— Seleccionar OT —</option></select>
+          </div>
+        </div>
+        <div id="ot-info-bar" style="display:none" class="alert al-i"></div>
+        <div class="g2">
+          <div class="fg"><label>Operador</label><input type="text" id="p-op"></div>
+          <div class="fg"><label>Observaciones</label><input type="text" id="p-obs" placeholder="Opcional..."></div>
+        </div>
+      </div>
+      <div class="card" id="pesaje-det" style="display:none">
+        <div class="card-hd">
+          <span class="card-title">Detalle de productos</span>
+          <button class="btn btn-sm" onclick="addFila()"><i class="ti ti-plus"></i>Agregar fila</button>
+        </div>
+        <div class="pr-hdr">
+          <span>Artículo</span><span>Unidad pesaje</span><span>Peso</span><span>Cantidad</span><span></span>
+        </div>
+        <div id="p-filas"></div>
+        <div class="sep"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div style="font-size:14px;display:flex;align-items:baseline;gap:8px">
+            Total:
+            <strong id="p-total" style="font-size:20px;color:var(--c-accent)">0.00</strong>
+            <span style="color:var(--c-text3)">GR</span>
+            <span style="color:var(--c-text3);font-size:12px">(=</span>
+            <strong id="p-total-kg" style="font-size:14px;color:var(--c-text2)">0.0000</strong>
+            <span style="color:var(--c-text3);font-size:12px">KG)</span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" onclick="guardarPesaje(false)" id="btn-guardar-pesaje"><i class="ti ti-device-floppy"></i>Guardar y continuar</button>
+            <button class="btn btn-d btn-lg" onclick="cerrarOTdesdePesaje()"><i class="ti ti-lock"></i>Cerrar OT y finalizar</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" id="pesaje-hist" style="display:none">
+        <div class="card-hd">
+          <span class="card-title">Pesajes registrados en esta OT</span>
+          <span class="badge b-accent" id="hist-badge"></span>
+        </div>
+        <div style="overflow:auto">
+          <table><thead><tr><th>#</th><th>Fecha</th><th>Hora</th><th>Artículo</th><th>Unidad</th><th style="text-align:right">Peso</th><th style="text-align:right">Cantidad</th><th>Operador</th></tr></thead>
+          <tbody id="hist-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ARTÍCULOS -->
+    <div id="page-art" class="page">
+      <div class="search-bar">
+        <input type="text" id="art-q" placeholder="Buscar artículo..." oninput="renderArt()">
+        <select id="art-filt" onchange="renderArt()">
+          <option value="">Todos</option><option value="1">Activos</option><option value="0">Inactivos</option>
+        </select>
+      </div>
+      <div class="card" style="padding:0;overflow:auto">
+        <table><thead><tr><th>Código</th><th>Descripción</th><th>Unidad</th><th>Categoría</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody id="art-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- USUARIOS -->
+    <div id="page-usr" class="page">
+      <div class="alert al-i" style="margin-bottom:14px">
+        <i class="ti ti-info-circle"></i>Los usuarios se autentican con Microsoft 365. Los roles aquí controlan el acceso a cada módulo.
+      </div>
+      <div class="card" style="padding:0;overflow:auto">
+        <table><thead><tr><th>Nombre</th><th>Email M365</th><th>Rol</th><th>Módulos</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody id="usr-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- AUDITORÍA -->
+    <div id="page-aud" class="page">
+      <div class="search-bar">
+        <input type="text" id="aud-q" placeholder="Buscar..." oninput="renderAud()">
+        <select id="aud-tipo" onchange="renderAud()">
+          <option value="">Todos los eventos</option>
+          <option value="OT">OT</option><option value="PESAJE">Pesaje</option>
+          <option value="CIERRE">Cierre OT</option><option value="ARTICULO">Artículo</option>
+          <option value="USUARIO">Usuario</option>
+        </select>
+      </div>
+      <div class="card" style="padding:0;overflow:auto">
+        <table><thead><tr><th>Fecha/Hora</th><th>Evento</th><th>Descripción</th><th>OT</th><th>Usuario</th><th>Antes</th><th>Después</th></tr></thead>
+        <tbody id="aud-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- IMP/EXP -->
+    <div id="page-impexp" class="page">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="card">
+          <div class="card-hd"><span class="card-title"><i class="ti ti-upload"></i> Importar</span></div>
+          <div class="fg mb"><label>Módulo</label>
+            <select id="im-mod"><option value="Articulos">Artículos</option><option value="OT_Encabezados">OT</option></select>
+          </div>
+          <div class="fg mb"><label>Archivo CSV o JSON</label>
+            <input type="file" accept=".csv,.json" id="im-file" style="padding:6px">
+          </div>
+          <div class="alert al-i"><i class="ti ti-info-circle"></i>CSV con encabezados o JSON array.</div>
+          <button class="btn btn-p" onclick="doImport()" style="margin-top:10px"><i class="ti ti-upload"></i>Importar</button>
+          <div id="im-res" style="margin-top:10px"></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><span class="card-title"><i class="ti ti-download"></i> Exportar</span></div>
+          <div class="fg mb"><label>Módulo</label>
+            <select id="ex-mod">
+              <option value="OT_Encabezados">Órdenes de trabajo</option>
+              <option value="OT_Pesajes">Pesajes</option>
+              <option value="Articulos">Artículos</option>
+              <option value="Auditoria">Auditoría</option>
+            </select>
+          </div>
+          <div class="fg mb"><label>Formato</label>
+            <select id="ex-fmt"><option value="csv">CSV</option><option value="json">JSON</option></select>
+          </div>
+          <button class="btn btn-p" onclick="doExport()"><i class="ti ti-download"></i>Exportar</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<div id="toast"></div>
+
+<!-- MODAL OT -->
+<div class="overlay" id="m-ot">
+<div class="modal">
+  <h3 id="m-ot-title">Nueva Orden de Trabajo</h3>
+  <div class="g3 mb">
+    <div class="fg"><label>N° OT</label><input id="f-nro" readonly></div>
+    <div class="fg"><label>Fecha de apertura</label><input type="date" id="f-fecha"></div>
+    <div class="fg"><label>Prioridad</label>
+      <select id="f-prior"><option>Normal</option><option>Alta</option><option>Urgente</option><option>Baja</option></select>
+    </div>
+  </div>
+  <div class="fg mb"><label>Descripción / Título</label><input id="f-desc" placeholder="Descripción del trabajo..."></div>
+  <div class="g2 mb">
+    <div class="fg"><label>Destino</label><input id="f-dest" value="PARSECS"></div>
+    <div class="fg"><label>Responsable</label><input id="f-resp" placeholder="Nombre del responsable..."></div>
+  </div>
+  <div class="g3 mb">
+    <div class="fg"><label>Tipo de trabajo</label>
+      <select id="f-tipo"><option>General</option><option>Mantenimiento</option><option>Producción</option><option>Inspección</option><option>Reparación</option></select>
+    </div>
+    <div class="fg"><label>Sector / Área</label><input id="f-sector" placeholder="Sector..."></div>
+    <div class="fg"><label>Fecha estimada cierre</label><input type="date" id="f-fcie"></div>
+  </div>
+  <div class="g2 mb">
+    <div class="fg"><label>Contacto</label><input id="f-cont" placeholder="Tel / email..."></div>
+    <div class="fg"><label>Referencia externa</label><input id="f-ref" placeholder="N° de referencia..."></div>
+  </div>
+  <div class="fg mb"><label>Observaciones</label><textarea id="f-obs" rows="2" placeholder="Notas adicionales..."></textarea></div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeM('m-ot')">Cancelar</button>
+    <button class="btn btn-p" id="btn-save-ot" onclick="saveOT()"><i class="ti ti-device-floppy"></i>Guardar OT</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL CIERRE -->
+<div class="overlay" id="m-cierre">
+<div class="modal modal-sm">
+  <h3><i class="ti ti-lock" style="color:var(--c-danger);margin-right:6px"></i>Cerrar Orden de Trabajo</h3>
+  <div id="cierre-conf">
+    <div class="alert al-w"><i class="ti ti-alert-triangle"></i>Esta acción es definitiva. No podrán cargarse más pesajes.</div>
+    <p style="font-size:14px;margin-bottom:6px">OT: <strong id="cierre-nro"></strong></p>
+    <p style="font-size:13px;color:var(--c-text2);margin-bottom:14px" id="cierre-resumen"></p>
+    <p style="font-size:13px;margin-bottom:16px">¿Confirma el cierre de esta OT?</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeM('m-cierre')">Cancelar</button>
+      <button class="btn btn-d" id="btn-exec-cierre" onclick="ejecutarCierre()"><i class="ti ti-lock"></i>Sí, cerrar OT</button>
+    </div>
+  </div>
+  <div id="cierre-ok" style="display:none">
+    <div class="cierre-box">
+      <h4><i class="ti ti-circle-check"></i> OT cerrada exitosamente</h4>
+      <p>La OT <strong id="cierre-ok-nro"></strong> fue cerrada.</p>
+      <div class="ts" id="cierre-ok-ts"></div>
+    </div>
+    <div style="text-align:center;margin-top:14px">
+      <button class="btn btn-p btn-lg" onclick="cerrarOkModal()"><i class="ti ti-check"></i>Aceptar</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- MODAL ARTÍCULO -->
+<div class="overlay" id="m-art">
+<div class="modal modal-sm">
+  <h3 id="m-art-title">Nuevo Artículo</h3>
+  <div class="g2 mb">
+    <div class="fg"><label>Código</label><input id="a-cod" placeholder="ART-001"></div>
+    <div class="fg"><label>Unidad</label>
+      <select id="a-uni"><option>kg</option><option>tn</option><option>u</option><option>lt</option><option>m</option><option>m²</option></select>
+    </div>
+  </div>
+  <div class="fg mb"><label>Descripción</label><input id="a-desc" placeholder="Nombre del artículo..."></div>
+  <div class="fg mb"><label>Categoría</label><input id="a-cat" placeholder="Categoría..."></div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeM('m-art')">Cancelar</button>
+    <button class="btn btn-p" id="btn-save-art" onclick="saveArt()"><i class="ti ti-device-floppy"></i>Guardar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL USUARIO -->
+<div class="overlay" id="m-usr">
+<div class="modal modal-sm">
+  <h3 id="m-usr-title">Nuevo Usuario</h3>
+  <div class="fg mb"><label>Nombre completo</label><input id="u-nom" placeholder="Juan García"></div>
+  <div class="fg mb"><label>Email Microsoft 365</label><input type="email" id="u-mail" placeholder="usuario@adhesivosparsecs.com"></div>
+  <div class="fg mb"><label>Rol</label>
+    <select id="u-rol" onchange="onRolChange()">
+      <option value="ADMIN">Administrador — acceso total</option>
+      <option value="OPERADOR">Operador — OT y Pesaje</option>
+      <option value="VIEWER">Solo lectura</option>
+    </select>
+  </div>
+  <div class="fg mb"><label>Módulos habilitados</label>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px">
+      <label style="display:flex;gap:5px;font-size:12px;cursor:pointer;align-items:center"><input type="checkbox" class="mod-chk" value="OT">OT</label>
+      <label style="display:flex;gap:5px;font-size:12px;cursor:pointer;align-items:center"><input type="checkbox" class="mod-chk" value="PESAJE">Pesaje</label>
+      <label style="display:flex;gap:5px;font-size:12px;cursor:pointer;align-items:center"><input type="checkbox" class="mod-chk" value="ARTICULOS">Artículos</label>
+      <label style="display:flex;gap:5px;font-size:12px;cursor:pointer;align-items:center"><input type="checkbox" class="mod-chk" value="USUARIOS">Usuarios</label>
+      <label style="display:flex;gap:5px;font-size:12px;cursor:pointer;align-items:center"><input type="checkbox" class="mod-chk" value="AUDITORIA">Auditoría</label>
+      <label style="display:flex;gap:5px;font-size:12px;cursor:pointer;align-items:center"><input type="checkbox" class="mod-chk" value="IMPEXP">Imp/Exp</label>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeM('m-usr')">Cancelar</button>
+    <button class="btn btn-p" id="btn-save-usr" onclick="saveUsr()"><i class="ti ti-device-floppy"></i>Guardar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL DEPURAR -->
+<div class="overlay" id="m-dep">
+<div class="modal modal-sm">
+  <h3>Depurar OT del histórico</h3>
+  <div class="alert al-d"><i class="ti ti-alert-triangle"></i>Elimina permanentemente la OT y todos sus pesajes.</div>
+  <p style="font-size:14px;margin:12px 0">OT: <strong id="dep-nro"></strong></p>
+  <div class="fg mb"><label>Motivo (obligatorio)</label><textarea id="dep-motivo" rows="3" placeholder="Ingrese el motivo..."></textarea></div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeM('m-dep')">Cancelar</button>
+    <button class="btn btn-d" id="btn-dep" onclick="ejecutarDep()"><i class="ti ti-trash"></i>Depurar definitivamente</button>
+  </div>
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONFIGURACIÓN MSAL + SHAREPOINT
+// ═══════════════════════════════════════════════════════
+const CFG = {
+  clientId:  '94395a14-a9e7-4d53-9d5f-22a6a3acc0f3',
+  tenantId:  '7e17a550-0f85-4d66-a595-c8cb3e4d5eef',
+  spBase:    'https://adhesivosparsecs.sharepoint.com/sites/GestionOT',
+  spApi:     'https://adhesivosparsecs.sharepoint.com/sites/GestionOT/_api',
+  spScope:   'https://adhesivosparsecs.sharepoint.com/AllSites.Write'
+};
+
+const msalApp = new msal.PublicClientApplication({
+  auth: {
+    clientId: CFG.clientId,
+    authority: `https://login.microsoftonline.com/${CFG.tenantId}`,
+    redirectUri: 'https://sistemasparsecs.github.io/gestion-ot/'
+  },
+  cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
+});
+
+let ST = {
+  ot:[], art:[], usr:[], aud:[], pesajes:[],
+  token: '',
+  currentUser: { name:'', email:'' },
+  otTab: 'ABIERTO',
+  editId: { ot:null, art:null, usr:null, dep:null, cierre:null }
+};
+
+// ═══════════════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════════════
+async function doLogin() {
+  if(!_msalReady) {
+    document.getElementById('login-msg').textContent = 'Inicializando... esperá un segundo e intentá de nuevo.';
+    return;
+  }
+  document.getElementById('login-msg').textContent = 'Redirigiendo a Microsoft...';
+  try {
+    await msalApp.loginRedirect({ scopes: ['User.Read', CFG.spScope] });
+  } catch(e) {
+    document.getElementById('login-msg').textContent = 'Error: ' + e.message;
+  }
+}
+
+async function getToken() {
+  const accounts = msalApp.getAllAccounts();
+  if(!accounts.length) throw new Error('No hay sesión activa');
+  try {
+    const resp = await msalApp.acquireTokenSilent({
+      scopes: [CFG.spScope],
+      account: accounts[0]
+    });
+    return resp.accessToken;
+  } catch(e) {
+    // Token expirado — redirigir a login
+    await msalApp.acquireTokenRedirect({ scopes: [CFG.spScope], account: accounts[0] });
+    throw new Error('Redirigiendo para renovar sesión...');
+  }
+}
+
+async function doLogout() {
+  if(!confirm('¿Cerrar sesión?')) return;
+  await msalApp.logoutRedirect({ postLogoutRedirectUri: 'https://sistemasparsecs.github.io/gestion-ot/' });
+}
+
+async function startApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  showLoading('Conectando con SharePoint...');
+  try {
+    const accounts = msalApp.getAllAccounts();
+    if(accounts.length) {
+      const acc = accounts[0];
+      ST.currentUser = { name: acc.name, email: acc.username };
+      document.getElementById('sb-nombre').textContent = acc.name;
+      document.getElementById('sb-email').textContent = acc.username;
+      document.getElementById('sb-av').textContent = acc.name.split(' ').map(w=>w[0]).join('').substr(0,2).toUpperCase();
+      document.getElementById('p-op').value = acc.name;
+    }
+    await loadAll();
+    document.getElementById('sp-status').textContent = '● SharePoint conectado';
+    document.getElementById('sp-status').className = 'sp-ok';
+    document.getElementById('app').style.display = 'flex';
+    hideLoading();
+    renderDash();
+  } catch(e) {
+    document.getElementById('sp-status').textContent = '● Error: ' + e.message;
+    document.getElementById('sp-status').className = 'sp-err';
+    document.getElementById('app').style.display = 'flex';
+    hideLoading();
+    toast('Error al conectar: ' + e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  SHAREPOINT API CON TOKEN MSAL
+// ═══════════════════════════════════════════════════════
+async function spFetch(url, opts={}) {
+  const token = await getToken();
+  const headers = {
+    'Authorization': 'Bearer ' + token,
+    'Accept': 'application/json;odata=verbose',
+    'Content-Type': 'application/json;odata=verbose',
+    'odata-version': '',
+    ...opts.headers
+  };
+  const r = await fetch(url, { ...opts, headers });
+  return r;
+}
+
+async function spGet(list, filter='', select='', top=500) {
+  let url = `${CFG.spApi}/web/lists/getbytitle('${list}')/items?$top=${top}`;
+  if(filter) url += `&$filter=${encodeURIComponent(filter)}`;
+  if(select) url += `&$select=${encodeURIComponent(select)}`;
+  const r = await spFetch(url);
+  if(!r.ok) throw new Error(`GET ${list}: ${r.status}`);
+  const d = await r.json();
+  return d.d.results;
+}
+
+const _types = {};
+async function getListType(list) {
+  if(_types[list]) return _types[list];
+  const r = await spFetch(`${CFG.spApi}/web/lists/getbytitle('${list}')?$select=ListItemEntityTypeFullName`);
+  const d = await r.json();
+  _types[list] = d.d.ListItemEntityTypeFullName;
+  return _types[list];
+}
+
+async function spPost(list, body) {
+  const type = await getListType(list);
+  const r = await spFetch(`${CFG.spApi}/web/lists/getbytitle('${list}')/items`, {
+    method: 'POST',
+    body: JSON.stringify({ __metadata:{ type }, ...body })
+  });
+  if(!r.ok) { const e=await r.json(); throw new Error(e.error?.message?.value||r.status); }
+  return r.json();
+}
+
+async function spPatch(list, id, body) {
+  const type = await getListType(list);
+  const r = await spFetch(`${CFG.spApi}/web/lists/getbytitle('${list}')/items(${id})`, {
+    method: 'POST',
+    headers: { 'X-HTTP-Method':'MERGE', 'If-Match':'*' },
+    body: JSON.stringify({ __metadata:{ type }, ...body })
+  });
+  if(!r.ok && r.status!==204) throw new Error(`PATCH ${list}(${id}): ${r.status}`);
+}
+
+async function spDelete(list, id) {
+  const r = await spFetch(`${CFG.spApi}/web/lists/getbytitle('${list}')/items(${id})`, {
+    method: 'POST',
+    headers: { 'X-HTTP-Method':'DELETE', 'If-Match':'*' }
+  });
+  if(!r.ok && r.status!==204) throw new Error(`DELETE ${list}(${id}): ${r.status}`);
+}
+
+async function logAud(tipo, desc, otNro='', antes='', despues='') {
+  try {
+    await spPost('Auditoria', {
+      Title: desc, TipoEvento: tipo, NroOT: otNro,
+      UsuarioAccion: ST.currentUser.name,
+      ValorAnterior: String(antes), ValorNuevo: String(despues),
+      FechaHora: new Date().toISOString()
+    });
+  } catch(e){ console.warn('Audit:', e); }
+}
+
+// ═══════════════════════════════════════════════════════
+//  UTILIDADES
+// ═══════════════════════════════════════════════════════
+const pad = n => n<10?'0'+n:''+n;
+const nowD = () => { const d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+const nowT = () => { const d=new Date(); return pad(d.getHours())+':'+pad(d.getMinutes()); };
+const nowTs = () => { const d=new Date(); return d.getFullYear()+'/'+pad(d.getMonth()+1)+'/'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); };
+const fmtFecha = iso => iso ? iso.substring(0,10) : '—';
+const fmtTs = iso => { if(!iso)return'—'; const d=new Date(iso); return d.getFullYear()+'/'+pad(d.getMonth()+1)+'/'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes()); };
+
+function toast(msg,type='ok'){
+  const el=document.createElement('div');
+  el.className=`toast-item toast-${type}`;
+  const icons={ok:'ti-circle-check',err:'ti-alert-circle',inf:'ti-info-circle'};
+  el.innerHTML=`<i class="ti ${icons[type]||'ti-info-circle'}"></i>${msg}`;
+  document.getElementById('toast').appendChild(el);
+  setTimeout(()=>el.remove(),4000);
+}
+function showLoading(msg){ document.getElementById('loading-msg').textContent=msg||'Cargando...'; document.getElementById('loading-overlay').style.display='flex'; }
+function hideLoading(){ document.getElementById('loading-overlay').style.display='none'; }
+function disableBtn(id,lbl){ const b=document.getElementById(id); if(b){b.disabled=true;b.innerHTML=`<span class="spinner"></span>${lbl}`;} }
+function enableBtn(id,icon,lbl){ const b=document.getElementById(id); if(b){b.disabled=false;b.innerHTML=`<i class="ti ${icon}"></i>${lbl}`;} }
+
+async function loadAll() {
+  const [ot,art,aud,pesajes] = await Promise.all([
+    spGet('OT_Encabezados','','ID,NroOT,Title,Destino,Responsable,Prioridad,TipoTrabajo,Sector,FechaApertura,FechaCierreEstimada,FechaCierreReal,Estado,Contacto,ReferenciaExterna,Observaciones,CerradoPor'),
+    spGet('Articulos','','ID,Codigo,Title,Unidad,Categoria,Activo'),
+    spGet('Auditoria','','ID,Title,TipoEvento,NroOT,UsuarioAccion,ValorAnterior,ValorNuevo,FechaHora',200),
+    spGet('OT_Pesajes','','ID,NroOT,OT_ID,FechaPesaje,HoraPesaje,ArticuloCodigo,ArticuloDescripcion,UnidadPesaje,PesoKg,Cantidad,Operador,Observaciones')
+  ]);
+  ST.ot=ot; ST.art=art;
+  ST.aud=aud.sort((a,b)=>new Date(b.FechaHora)-new Date(a.FechaHora));
+  ST.pesajes=pesajes;
+  document.getElementById('cnt-ot').textContent=ST.ot.filter(o=>o.Estado==='ABIERTO').length;
+}
+
+// ═══════════════════════════════════════════════════════
+//  NAVEGACIÓN
+// ═══════════════════════════════════════════════════════
+function nav(p){
+  document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
+  document.getElementById('ni-'+p).classList.add('active');
+  document.getElementById('page-'+p).classList.add('active');
+  const tt={dash:'Dashboard',ot:'Gestión de OT',pesaje:'Registro de Pesaje',art:'Artículos',usr:'Usuarios',aud:'Auditoría',impexp:'Importar / Exportar'};
+  document.getElementById('pg-title').textContent=tt[p]||p;
+  const acts={
+    ot:'<button class="btn btn-p" onclick="openOT()"><i class="ti ti-plus"></i>Nueva OT</button>',
+    art:'<button class="btn btn-p" onclick="openArt()"><i class="ti ti-plus"></i>Nuevo artículo</button>',
+    usr:'<button class="btn btn-p" onclick="openUsr()"><i class="ti ti-plus"></i>Nuevo usuario</button>',
+    dash:'<button class="btn" onclick="loadAll().then(renderDash)"><i class="ti ti-refresh"></i>Actualizar</button>',
+    aud:'<button class="btn" onclick="loadAll().then(renderAud)"><i class="ti ti-refresh"></i>Actualizar</button>',
+    pesaje:'',impexp:''
+  };
+  document.getElementById('tb-btns').innerHTML=acts[p]||'';
+  if(p==='dash')   renderDash();
+  if(p==='ot')     renderOT();
+  if(p==='art')    renderArt();
+  if(p==='usr')    renderUsr();
+  if(p==='aud')    renderAud();
+  if(p==='pesaje') initPesaje();
+}
+
+// ═══════════════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════════════
+function renderDash(){
+  const ab=ST.ot.filter(o=>o.Estado==='ABIERTO').length;
+  const ce=ST.ot.filter(o=>o.Estado==='CERRADO').length;
+  const hi=ST.ot.filter(o=>o.Estado==='HISTORICO').length;
+  const totkg=ST.pesajes.reduce((a,p)=>a+(parseFloat(p.PesoKg)||0),0);
+  document.getElementById('dash-mets').innerHTML=`
+    <div class="met"><div class="met-label">OT Abiertas</div><div class="met-val">${ab}</div></div>
+    <div class="met"><div class="met-label">OT Cerradas</div><div class="met-val" style="color:var(--c-text2)">${ce}</div></div>
+    <div class="met"><div class="met-label">En Histórico</div><div class="met-val a">${hi}</div></div>
+    <div class="met"><div class="met-label">Total pesado (GR)</div><div class="met-val g">${totkg.toFixed(0)}</div></div>`;
+  const otr=ST.ot.slice(0,6).map(o=>`<tr><td><strong>${o.NroOT||''}</strong></td><td>${o.Title||''}</td><td>${o.Destino||''}</td><td>${estBadge(o.Estado)}</td></tr>`).join('');
+  document.getElementById('dash-ot').innerHTML=`<table><thead><tr><th>N°</th><th>Descripción</th><th>Destino</th><th>Estado</th></tr></thead><tbody>${otr||'<tr><td colspan="4" class="empty">Sin OT</td></tr>'}</tbody></table>`;
+  const pr=ST.pesajes.slice(0,6).map(p=>`<tr><td>${fmtFecha(p.FechaPesaje)}</td><td><strong>${p.NroOT||''}</strong></td><td>${p.ArticuloDescripcion||''}</td><td style="text-align:right;font-weight:600">${(parseFloat(p.PesoKg)||0).toFixed(3)} <span style="font-size:10px;color:var(--c-text3)">${p.UnidadPesaje||'GR'}</span></td></tr>`).join('');
+  document.getElementById('dash-pesos').innerHTML=pr?`<table><thead><tr><th>Fecha</th><th>OT</th><th>Artículo</th><th>Peso</th></tr></thead><tbody>${pr}</tbody></table>`:'<div class="empty"><i class="ti ti-scale"></i>Sin pesajes</div>';
+  const ar=ST.aud.slice(0,6).map(a=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--c-border);font-size:12px;align-items:center"><span style="color:var(--c-text3);white-space:nowrap">${fmtTs(a.FechaHora)}</span><span class="badge b-accent" style="font-size:10px">${a.TipoEvento||''}</span><span>${a.Title||''}</span></div>`).join('');
+  document.getElementById('dash-aud').innerHTML=ar||'<div class="empty">Sin actividad</div>';
+}
+
+// ═══════════════════════════════════════════════════════
+//  GESTIÓN OT
+// ═══════════════════════════════════════════════════════
+function setOtTab(t){
+  ST.otTab=t;
+  ['ab','ce','hi'].forEach((x,i)=>document.getElementById('tab-'+x).classList.toggle('active',['ABIERTO','CERRADO','HISTORICO'][i]===t));
+  renderOT();
+}
+function estBadge(e){ const m={ABIERTO:'b-open',CERRADO:'b-closed',HISTORICO:'b-hist'}; const l={ABIERTO:'Abierto',CERRADO:'Cerrado',HISTORICO:'Histórico'}; return`<span class="badge ${m[e]||''}">${l[e]||e}</span>`; }
+function priBadge(p){ if(p==='Urgente')return`<span class="badge b-danger">${p}</span>`; if(p==='Alta')return`<span class="badge b-hist">${p}</span>`; return`<span style="font-size:12px;color:var(--c-text2)">${p||''}</span>`; }
+
+function renderOT(){
+  const q=(document.getElementById('ot-q')||{}).value||'';
+  const data=ST.ot.filter(o=>o.Estado===ST.otTab&&(!q||(o.NroOT+o.Title+o.Destino+o.Responsable).toLowerCase().includes(q.toLowerCase())));
+  const rows=data.map(o=>{
+    let btns='<div style="display:flex;gap:4px;flex-wrap:wrap">';
+    if(o.Estado==='ABIERTO'){ btns+=`<button class="btn btn-sm" onclick="editOT(${o.ID})"><i class="ti ti-edit"></i></button><button class="btn btn-sm btn-d" onclick="cerrarOT(${o.ID})"><i class="ti ti-lock"></i>Cerrar</button>`; }
+    if(o.Estado==='CERRADO'){ btns+=`<button class="btn btn-sm btn-w" onclick="pasarHistorico(${o.ID})"><i class="ti ti-archive"></i>→ Hist.</button>`; }
+    if(o.Estado==='HISTORICO'){ btns+=`<button class="btn btn-sm btn-d" onclick="openDep(${o.ID})"><i class="ti ti-trash"></i>Depurar</button>`; }
+    btns+='</div>';
+    return`<tr><td><strong>${o.NroOT||''}</strong></td><td>${o.Title||''}</td><td>${o.Destino||''}</td><td>${o.Responsable||''}</td><td style="font-size:12px">${fmtFecha(o.FechaApertura)}</td><td style="font-size:12px">${o.FechaCierreReal?fmtTs(o.FechaCierreReal):'—'}</td><td>${priBadge(o.Prioridad)}</td><td>${estBadge(o.Estado)}</td><td>${btns}</td></tr>`;
+  }).join('');
+  document.getElementById('ot-tbody').innerHTML=rows||`<tr><td colspan="9" class="empty">Sin órdenes en este estado</td></tr>`;
+  document.getElementById('cnt-ot').textContent=ST.ot.filter(o=>o.Estado==='ABIERTO').length;
+}
+
+function openOT(){ ST.editId.ot=null; document.getElementById('m-ot-title').textContent='Nueva Orden de Trabajo'; document.getElementById('f-nro').value='OT-'+String(ST.ot.length+1).padStart(4,'0'); document.getElementById('f-fecha').value=nowD(); document.getElementById('f-dest').value='PARSECS'; ['f-desc','f-resp','f-sector','f-fcie','f-cont','f-ref','f-obs'].forEach(id=>document.getElementById(id).value=''); document.getElementById('f-prior').value='Normal'; document.getElementById('f-tipo').value='General'; openM('m-ot'); }
+
+function editOT(id){ const o=ST.ot.find(x=>x.ID===id);if(!o)return; ST.editId.ot=id; document.getElementById('m-ot-title').textContent='Editar '+o.NroOT; document.getElementById('f-nro').value=o.NroOT||''; document.getElementById('f-fecha').value=fmtFecha(o.FechaApertura); document.getElementById('f-desc').value=o.Title||''; document.getElementById('f-dest').value=o.Destino||'PARSECS'; document.getElementById('f-resp').value=o.Responsable||''; document.getElementById('f-prior').value=o.Prioridad||'Normal'; document.getElementById('f-tipo').value=o.TipoTrabajo||'General'; document.getElementById('f-sector').value=o.Sector||''; document.getElementById('f-fcie').value=fmtFecha(o.FechaCierreEstimada); document.getElementById('f-cont').value=o.Contacto||''; document.getElementById('f-ref').value=o.ReferenciaExterna||''; document.getElementById('f-obs').value=o.Observaciones||''; openM('m-ot'); }
+
+async function saveOT(){
+  const desc=document.getElementById('f-desc').value.trim(); if(!desc){toast('Ingrese una descripción','err');return;}
+  disableBtn('btn-save-ot','Guardando...');
+  const body={NroOT:document.getElementById('f-nro').value,Title:desc,Destino:document.getElementById('f-dest').value,Responsable:document.getElementById('f-resp').value,Prioridad:document.getElementById('f-prior').value,TipoTrabajo:document.getElementById('f-tipo').value,Sector:document.getElementById('f-sector').value,FechaApertura:document.getElementById('f-fecha').value||null,FechaCierreEstimada:document.getElementById('f-fcie').value||null,Contacto:document.getElementById('f-cont').value,ReferenciaExterna:document.getElementById('f-ref').value,Observaciones:document.getElementById('f-obs').value};
+  try{
+    if(ST.editId.ot){ await spPatch('OT_Encabezados',ST.editId.ot,body); await logAud('OT','OT editada: '+body.NroOT,body.NroOT,'','editada'); toast('OT actualizada','ok'); }
+    else{ body.Estado='ABIERTO'; await spPost('OT_Encabezados',body); await logAud('OT','OT creada: '+body.NroOT,body.NroOT,'','ABIERTO'); toast('OT creada','ok'); }
+    await loadAll(); closeM('m-ot'); renderOT();
+  }catch(e){ toast('Error: '+e.message,'err'); }
+  enableBtn('btn-save-ot','ti-device-floppy','Guardar OT');
+}
+
+function cerrarOT(id){ const o=ST.ot.find(x=>x.ID===id);if(!o)return; ST.editId.cierre=id; const cant=ST.pesajes.filter(p=>parseInt(p.OT_ID)===id).length; const tot=ST.pesajes.filter(p=>parseInt(p.OT_ID)===id).reduce((a,p)=>a+(parseFloat(p.PesoKg)||0),0); document.getElementById('cierre-nro').textContent=o.NroOT+' — '+o.Title; document.getElementById('cierre-resumen').textContent=`Pesajes: ${cant} registros — Total: ${tot.toFixed(3)} GR`; document.getElementById('cierre-conf').style.display=''; document.getElementById('cierre-ok').style.display='none'; openM('m-cierre'); }
+
+async function ejecutarCierre(){ const o=ST.ot.find(x=>x.ID===ST.editId.cierre);if(!o)return; disableBtn('btn-exec-cierre','Cerrando...'); try{ await spPatch('OT_Encabezados',o.ID,{Estado:'CERRADO',FechaCierreReal:new Date().toISOString(),CerradoPor:ST.currentUser.name}); await logAud('CIERRE','OT cerrada: '+o.NroOT,o.NroOT,'ABIERTO','CERRADO'); await loadAll(); document.getElementById('cierre-conf').style.display='none'; document.getElementById('cierre-ok').style.display=''; document.getElementById('cierre-ok-nro').textContent=o.NroOT; document.getElementById('cierre-ok-ts').textContent=nowTs(); renderOT();renderDash(); }catch(e){ toast('Error: '+e.message,'err'); enableBtn('btn-exec-cierre','ti-lock','Sí, cerrar OT'); } }
+
+function cerrarOkModal(){ closeM('m-cierre'); if(document.getElementById('page-pesaje').classList.contains('active'))initPesaje(); }
+
+async function pasarHistorico(id){ const o=ST.ot.find(x=>x.ID===id);if(!o||!confirm(`¿Mover ${o.NroOT} al histórico?`))return; try{ await spPatch('OT_Encabezados',id,{Estado:'HISTORICO'}); await logAud('OT','OT movida a histórico: '+o.NroOT,o.NroOT,'CERRADO','HISTORICO'); await loadAll();renderOT();toast('OT movida al histórico','ok'); }catch(e){toast('Error: '+e.message,'err');} }
+
+function openDep(id){ const o=ST.ot.find(x=>x.ID===id);if(!o)return; ST.editId.dep=id; document.getElementById('dep-nro').textContent=o.NroOT+' — '+o.Title; document.getElementById('dep-motivo').value=''; openM('m-dep'); }
+
+async function ejecutarDep(){ const motivo=document.getElementById('dep-motivo').value.trim(); if(!motivo){toast('Ingrese un motivo','err');return;} const o=ST.ot.find(x=>x.ID===ST.editId.dep);if(!o)return; disableBtn('btn-dep','Depurando...'); try{ const pesRel=ST.pesajes.filter(p=>parseInt(p.OT_ID)===o.ID); for(const p of pesRel)await spDelete('OT_Pesajes',p.ID); await spDelete('OT_Encabezados',o.ID); await logAud('OT',`OT depurada: ${o.NroOT} — Motivo: ${motivo}`,o.NroOT,'HISTORICO','ELIMINADO'); await loadAll();closeM('m-dep');renderOT();toast('OT depurada','ok'); }catch(e){toast('Error: '+e.message,'err');} enableBtn('btn-dep','ti-trash','Depurar definitivamente'); }
+
+// ═══════════════════════════════════════════════════════
+//  PESAJE
+// ═══════════════════════════════════════════════════════
+function initPesaje(){ document.getElementById('p-fecha').value=nowD(); document.getElementById('p-hora').value=nowT(); const sel=document.getElementById('p-ot'); sel.innerHTML='<option value="">— Seleccionar OT abierta —</option>'; ST.ot.filter(o=>o.Estado==='ABIERTO').forEach(o=>{const op=document.createElement('option');op.value=o.ID;op.textContent=o.NroOT+' — '+o.Title;sel.appendChild(op);}); sel.value=''; document.getElementById('ot-info-bar').style.display='none'; document.getElementById('pesaje-det').style.display='none'; document.getElementById('pesaje-hist').style.display='none'; document.getElementById('p-filas').innerHTML=''; calcTotal(); }
+
+function onOtSelect(){ const id=parseInt(document.getElementById('p-ot').value); if(!id){document.getElementById('ot-info-bar').style.display='none';document.getElementById('pesaje-det').style.display='none';document.getElementById('pesaje-hist').style.display='none';return;} const o=ST.ot.find(x=>x.ID===id); document.getElementById('ot-info-bar').style.display='flex'; document.getElementById('ot-info-bar').textContent=`OT: ${o.NroOT} | Destino: ${o.Destino||''} | Responsable: ${o.Responsable||''}${o.Sector?' | Sector: '+o.Sector:''}`; document.getElementById('pesaje-det').style.display=''; document.getElementById('pesaje-hist').style.display=''; document.getElementById('p-filas').innerHTML=''; addFila(); renderHist(id); }
+
+function addFila(){ const d=document.createElement('div'); d.className='pr-row'; const opts=ST.art.filter(a=>a.Activo).map(a=>`<option value="${a.ID}">${a.Codigo||''} — ${a.Title||''}</option>`).join(''); d.innerHTML=`<select class="fila-art" onchange="calcTotal()"><option value="">— Artículo —</option>${opts}</select><select class="fila-uni" onchange="calcTotal()" style="font-weight:500;color:var(--c-accent)"><option value="GR" selected>GR — Gramos</option><option value="KG">KG — Kilogramos</option><option value="MG">MG — Miligramos</option><option value="Otra">Otra</option></select><input type="number" class="fila-peso" step="0.001" min="0" placeholder="0.000" oninput="calcTotal()" style="text-align:right"><input type="number" class="fila-cant" step="1" min="0" placeholder="0" oninput="calcTotal()" style="text-align:right"><button class="btn btn-sm btn-d" onclick="this.parentElement.remove();calcTotal()"><i class="ti ti-x"></i></button>`; document.getElementById('p-filas').appendChild(d); }
+
+function calcTotal(){ let t=0; document.querySelectorAll('#p-filas .pr-row').forEach(r=>{ const peso=parseFloat(r.querySelector('.fila-peso')?.value)||0; const uni=r.querySelector('.fila-uni')?.value||'GR'; if(uni==='KG')t+=peso*1000; else if(uni==='MG')t+=peso/1000; else t+=peso; }); document.getElementById('p-total').textContent=t.toFixed(2); document.getElementById('p-total-kg').textContent=(t/1000).toFixed(4); }
+
+async function guardarPesaje(cierra=false){ const otId=parseInt(document.getElementById('p-ot').value); if(!otId){toast('Seleccione una OT','err');return false;} const o=ST.ot.find(x=>x.ID===otId); const fecha=document.getElementById('p-fecha').value; const hora=document.getElementById('p-hora').value; const op=document.getElementById('p-op').value; const obs=document.getElementById('p-obs').value; const filas=[]; document.querySelectorAll('#p-filas .pr-row').forEach(r=>{ const artId=parseInt(r.querySelector('.fila-art')?.value)||0; const uni=r.querySelector('.fila-uni')?.value||'GR'; const peso=parseFloat(r.querySelector('.fila-peso')?.value)||0; const cant=parseFloat(r.querySelector('.fila-cant')?.value)||0; if(artId&&peso>0){const art=ST.art.find(a=>a.ID===artId);filas.push({artId,artCod:art?.Codigo||'',artDesc:art?.Title||'',uni,peso,cant});} }); if(filas.length===0&&!cierra){toast('Agregue al menos un artículo con peso','err');return false;} if(filas.length===0)return true; disableBtn('btn-guardar-pesaje','Guardando...'); try{ for(const f of filas){ await spPost('OT_Pesajes',{Title:`${o.NroOT}-${fecha}`,OT_ID:otId,NroOT:o.NroOT,FechaPesaje:fecha,HoraPesaje:hora,ArticuloCodigo:f.artCod,ArticuloDescripcion:f.artDesc,UnidadPesaje:f.uni,PesoKg:f.peso,Cantidad:f.cant,Operador:op,Observaciones:obs}); } const totP=filas.reduce((a,f)=>a+f.peso,0); await logAud('PESAJE',`${filas.length} ítem(s) en ${o.NroOT} (${totP.toFixed(3)} ${filas[0].uni})`,o.NroOT,'',totP.toFixed(3)); await loadAll(); renderHist(otId); document.getElementById('p-filas').innerHTML=''; addFila(); calcTotal(); if(!cierra)toast(`${filas.length} ítem(s) guardados — ${totP.toFixed(3)} ${filas[0].uni}`,'ok'); }catch(e){toast('Error: '+e.message,'err');return false;} enableBtn('btn-guardar-pesaje','ti-device-floppy','Guardar y continuar'); return true; }
+
+async function cerrarOTdesdePesaje(){ const otId=parseInt(document.getElementById('p-ot').value); if(!otId){toast('Seleccione una OT','err');return;} await guardarPesaje(true); cerrarOT(otId); }
+
+function renderHist(otId){ const data=ST.pesajes.filter(p=>parseInt(p.OT_ID)===parseInt(otId)); const rows=data.map((p,i)=>`<tr><td>${i+1}</td><td style="font-size:12px">${fmtFecha(p.FechaPesaje)}</td><td style="font-size:12px">${p.HoraPesaje||''}</td><td>${p.ArticuloDescripcion||''}</td><td><span class="badge b-accent" style="font-size:11px">${p.UnidadPesaje||'GR'}</span></td><td style="text-align:right;font-weight:600;font-size:14px">${(parseFloat(p.PesoKg)||0).toFixed(3)}</td><td style="text-align:right">${p.Cantidad||0}</td><td style="font-size:12px">${p.Operador||''}</td></tr>`).join(''); document.getElementById('hist-tbody').innerHTML=rows||'<tr><td colspan="8" class="empty">Sin pesajes</td></tr>'; let totGr=0; data.forEach(p=>{ const peso=parseFloat(p.PesoKg)||0; const uni=p.UnidadPesaje||'GR'; if(uni==='KG')totGr+=peso*1000; else if(uni==='MG')totGr+=peso/1000; else totGr+=peso; }); document.getElementById('hist-badge').textContent=`Total: ${totGr.toFixed(2)} GR (${(totGr/1000).toFixed(4)} KG) — ${data.length} registros`; }
+
+// ═══════════════════════════════════════════════════════
+//  ARTÍCULOS
+// ═══════════════════════════════════════════════════════
+function renderArt(){ const q=(document.getElementById('art-q')||{}).value||''; const f=(document.getElementById('art-filt')||{}).value||''; const data=ST.art.filter(a=>{const qm=!q||(a.Codigo+a.Title+a.Categoria).toLowerCase().includes(q.toLowerCase());const fm=!f||(f==='1'?a.Activo:!a.Activo);return qm&&fm;}); const rows=data.map(a=>`<tr><td><code style="font-size:12px;background:var(--c-bg);padding:2px 6px;border-radius:4px">${a.Codigo||''}</code></td><td>${a.Title||''}</td><td>${a.Unidad||''}</td><td>${a.Categoria||''}</td><td>${a.Activo?'<span class="badge b-open">Activo</span>':'<span class="badge b-closed">Inactivo</span>'}</td><td><div style="display:flex;gap:4px"><button class="btn btn-sm" onclick="editArt(${a.ID})"><i class="ti ti-edit"></i></button><button class="btn btn-sm ${a.Activo?'btn-d':'btn-g'}" onclick="toggleArt(${a.ID})">${a.Activo?'Deshabilitar':'Habilitar'}</button></div></td></tr>`).join(''); document.getElementById('art-tbody').innerHTML=rows||'<tr><td colspan="6" class="empty">Sin artículos</td></tr>'; }
+function openArt(){ ST.editId.art=null; document.getElementById('m-art-title').textContent='Nuevo Artículo'; ['a-cod','a-desc','a-cat'].forEach(id=>document.getElementById(id).value=''); document.getElementById('a-uni').value='kg'; openM('m-art'); }
+function editArt(id){ const a=ST.art.find(x=>x.ID===id);if(!a)return; ST.editId.art=id; document.getElementById('m-art-title').textContent='Editar Artículo'; document.getElementById('a-cod').value=a.Codigo||''; document.getElementById('a-desc').value=a.Title||''; document.getElementById('a-uni').value=a.Unidad||'kg'; document.getElementById('a-cat').value=a.Categoria||''; openM('m-art'); }
+async function saveArt(){ const desc=document.getElementById('a-desc').value.trim();if(!desc)return; disableBtn('btn-save-art','Guardando...'); const body={Title:desc,Codigo:document.getElementById('a-cod').value,Unidad:document.getElementById('a-uni').value,Categoria:document.getElementById('a-cat').value}; try{ if(ST.editId.art){await spPatch('Articulos',ST.editId.art,body);await logAud('ARTICULO','Artículo editado: '+desc);toast('Artículo actualizado','ok');}else{body.Activo=true;await spPost('Articulos',body);await logAud('ARTICULO','Artículo creado: '+desc);toast('Artículo creado','ok');} await loadAll();closeM('m-art');renderArt(); }catch(e){toast('Error: '+e.message,'err');} enableBtn('btn-save-art','ti-device-floppy','Guardar'); }
+async function toggleArt(id){ const a=ST.art.find(x=>x.ID===id);if(!a)return; try{await spPatch('Articulos',id,{Activo:!a.Activo});await logAud('ARTICULO',a.Title+(a.Activo?' deshabilitado':' habilitado'));await loadAll();renderArt();toast(a.Activo?'Artículo deshabilitado':'Artículo habilitado','ok');}catch(e){toast('Error: '+e.message,'err');} }
+
+// ═══════════════════════════════════════════════════════
+//  USUARIOS
+// ═══════════════════════════════════════════════════════
+function renderUsr(){ spGet('Configuracion',"startswith(Title,'USR:')").then(items=>{ const rolBadge={ADMIN:'b-accent',OPERADOR:'b-open',VIEWER:'b-closed'}; const rows=items.map(u=>{ let data;try{data=JSON.parse(u.Valor);}catch(e){data={};} return`<tr><td>${data.nom||''}</td><td style="font-size:12px">${data.mail||''}</td><td><span class="badge ${rolBadge[data.rol]||''}">${data.rol||''}</span></td><td style="font-size:12px">${(data.mods||[]).join(', ')}</td><td><span class="badge b-open">Activo</span></td><td><div style="display:flex;gap:4px"><button class="btn btn-sm" onclick="editUsrById(${u.ID})"><i class="ti ti-edit"></i></button><button class="btn btn-sm btn-d" onclick="delUsr(${u.ID},'${data.nom||''}')"><i class="ti ti-trash"></i></button></div></td></tr>`; }).join(''); document.getElementById('usr-tbody').innerHTML=rows||'<tr><td colspan="6" class="empty">Sin usuarios</td></tr>'; }); }
+function openUsr(){ ST.editId.usr=null; document.getElementById('m-usr-title').textContent='Nuevo Usuario'; ['u-nom','u-mail'].forEach(id=>document.getElementById(id).value=''); document.getElementById('u-rol').value='OPERADOR'; document.querySelectorAll('.mod-chk').forEach(c=>c.checked=false); openM('m-usr'); }
+async function editUsrById(id){ try{ const items=await spGet('Configuracion',`ID eq ${id}`);if(!items.length)return; let data;try{data=JSON.parse(items[0].Valor);}catch(e){data={};} ST.editId.usr=id; document.getElementById('m-usr-title').textContent='Editar Usuario'; document.getElementById('u-nom').value=data.nom||''; document.getElementById('u-mail').value=data.mail||''; document.getElementById('u-rol').value=data.rol||'OPERADOR'; document.querySelectorAll('.mod-chk').forEach(c=>c.checked=(data.mods||[]).includes(c.value)); openM('m-usr'); }catch(e){toast('Error: '+e.message,'err');} }
+function onRolChange(){ if(document.getElementById('u-rol').value==='ADMIN')document.querySelectorAll('.mod-chk').forEach(c=>c.checked=true); }
+async function saveUsr(){ const nom=document.getElementById('u-nom').value.trim();if(!nom){toast('Ingrese el nombre','err');return;} const mods=[...document.querySelectorAll('.mod-chk:checked')].map(c=>c.value); const data={nom,mail:document.getElementById('u-mail').value,rol:document.getElementById('u-rol').value,mods}; disableBtn('btn-save-usr','Guardando...'); try{ if(ST.editId.usr){await spPatch('Configuracion',ST.editId.usr,{Valor:JSON.stringify(data)});await logAud('USUARIO','Usuario editado: '+nom);toast('Usuario actualizado','ok');}else{await spPost('Configuracion',{Title:'USR:'+nom,Valor:JSON.stringify(data),Descripcion:'Usuario del sistema'});await logAud('USUARIO','Usuario creado: '+nom);toast('Usuario creado','ok');} closeM('m-usr');renderUsr(); }catch(e){toast('Error: '+e.message,'err');} enableBtn('btn-save-usr','ti-device-floppy','Guardar'); }
+async function delUsr(id,nom){ if(!confirm(`¿Eliminar usuario "${nom}"?`))return; try{await spDelete('Configuracion',id);await logAud('USUARIO','Usuario eliminado: '+nom);renderUsr();toast('Usuario eliminado','ok');}catch(e){toast('Error: '+e.message,'err');} }
+
+// ═══════════════════════════════════════════════════════
+//  AUDITORÍA
+// ═══════════════════════════════════════════════════════
+function renderAud(){ const q=(document.getElementById('aud-q')||{}).value||''; const t=(document.getElementById('aud-tipo')||{}).value||''; const data=ST.aud.filter(a=>(!t||a.TipoEvento===t)&&(!q||(a.Title+a.UsuarioAccion+a.NroOT).toLowerCase().includes(q.toLowerCase()))); const tipoCls={OT:'b-accent',PESAJE:'b-open',CIERRE:'b-closed',ARTICULO:'b-hist',USUARIO:'b-danger',SISTEMA:'b-closed'}; const rows=data.map(a=>`<tr><td style="white-space:nowrap;font-size:12px">${fmtTs(a.FechaHora)}</td><td><span class="badge ${tipoCls[a.TipoEvento]||'b-closed'}" style="font-size:10px">${a.TipoEvento||''}</span></td><td style="font-size:12px">${a.Title||''}</td><td style="font-size:12px;font-weight:500">${a.NroOT||''}</td><td style="font-size:12px">${a.UsuarioAccion||''}</td><td style="font-size:12px;color:var(--c-text3)">${a.ValorAnterior||''}</td><td style="font-size:12px;font-weight:500">${a.ValorNuevo||''}</td></tr>`).join(''); document.getElementById('aud-tbody').innerHTML=rows||'<tr><td colspan="7" class="empty">Sin registros</td></tr>'; }
+
+// ═══════════════════════════════════════════════════════
+//  IMP / EXP
+// ═══════════════════════════════════════════════════════
+async function doExport(){ const lista=document.getElementById('ex-mod').value; const fmt=document.getElementById('ex-fmt').value; showLoading('Exportando...'); try{ const data=await spGet(lista,'','',5000); let blob,fn; if(fmt==='json'){blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});fn=lista+'_export.json';}else{ if(!data.length){hideLoading();toast('Sin datos','inf');return;} const skip=['__metadata','odata.type','odata.id','odata.etag','odata.editLink']; const keys=Object.keys(data[0]).filter(k=>!skip.includes(k)&&!k.endsWith('StringId')); const csv=keys.join(',')+'\n'+data.map(r=>keys.map(k=>{let v=r[k];if(typeof v==='object')v=JSON.stringify(v);return'"'+(v||'').toString().replace(/"/g,'""')+'"';}).join(',')).join('\n'); blob=new Blob([csv],{type:'text/csv'});fn=lista+'_export.csv';} const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click(); toast(`Exportados ${data.length} registros`,'ok'); }catch(e){toast('Error: '+e.message,'err');} hideLoading(); }
+
+async function doImport(){ const f=document.getElementById('im-file').files[0];if(!f){toast('Seleccione archivo','err');return;} const lista=document.getElementById('im-mod').value; const reader=new FileReader(); reader.onload=async function(e){ try{ let data; if(f.name.endsWith('.json'))data=JSON.parse(e.target.result); else{const ls=e.target.result.split('\n').filter(l=>l.trim());const hd=ls[0].split(',').map(h=>h.replace(/"/g,'').trim());data=ls.slice(1).map(l=>{const vs=l.split(',');const o={};hd.forEach((h,i)=>o[h]=(vs[i]||'').replace(/"/g,'').trim());return o;});} showLoading(`Importando ${data.length} registros...`); let ok=0; for(const row of data){try{await spPost(lista,row);ok++;}catch(e2){console.warn(e2);}} await loadAll(); document.getElementById('im-res').innerHTML=`<div class="alert al-s"><i class="ti ti-check"></i>Importados ${ok} de ${data.length} registros</div>`; toast(`Importación: ${ok} registros`,'ok'); }catch(err){document.getElementById('im-res').innerHTML=`<div class="alert al-d"><i class="ti ti-alert-circle"></i>Error: ${err.message}</div>`;} hideLoading(); }; reader.readAsText(f); }
+
+// ═══════════════════════════════════════════════════════
+//  MODALES
+// ═══════════════════════════════════════════════════════
+function openM(id){document.getElementById(id).classList.add('open')}
+function closeM(id){document.getElementById(id).classList.remove('open')}
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===o)o.classList.remove('open')}));
+
+// ═══════════════════════════════════════════════════════
+//  ARRANQUE — inicialización MSAL
+// ═══════════════════════════════════════════════════════
+let _msalReady = false;
+
+async function doLogin() {
+  if(!_msalReady) {
+    document.getElementById('login-msg').textContent = 'Inicializando... esperá un segundo e intentá de nuevo.';
+    return;
+  }
+  document.getElementById('login-msg').textContent = 'Redirigiendo a Microsoft...';
+  try {
+    await msalApp.loginRedirect({ scopes: ['User.Read', CFG.spScope] });
+  } catch(e) {
+    document.getElementById('login-msg').textContent = 'Error: ' + e.message;
+  }
+}
+
+(async function initMsal() {
+  try {
+    await msalApp.initialize();
+    _msalReady = true;
+    try { await msalApp.handleRedirectPromise(); } catch(e) {}
+    const accounts = msalApp.getAllAccounts();
+    if(accounts.length > 0) {
+      await startApp();
+    }
+  } catch(e) {
+    document.getElementById('login-msg').textContent = 'Error de inicialización: ' + e.message;
+  }
+})();
+</script>
+</body>
+</html>
